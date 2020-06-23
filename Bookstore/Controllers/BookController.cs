@@ -1,7 +1,10 @@
 ﻿using Bookstore.Models;
 using Bookstore.Models.Repositories;
+using Bookstore.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Bookstore.Controllers
 {
@@ -9,9 +12,12 @@ namespace Bookstore.Controllers
     {
         private readonly IBookstoreRepository<Book> bookRepository;
 
-        public BookController(IBookstoreRepository<Book> bookRepository)
+        public IBookstoreRepository<Author> AuthorRepository { get; }
+
+        public BookController(IBookstoreRepository<Book> bookRepository, IBookstoreRepository<Author> authorRepository)
         {
             this.bookRepository = bookRepository;
+            AuthorRepository = authorRepository;
         }
         // GET: BookController
         public ActionResult Index()
@@ -31,16 +37,42 @@ namespace Bookstore.Controllers
         // GET: BookController/Create
         public ActionResult Create()
         {
-            return View();
+            var model = new BookAuthorViewModel
+            {
+                Authors = fillSelectList()
+            };
+
+            return View(model);
         }
 
         // POST: BookController/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Create(Book book)
+        public ActionResult Create(BookAuthorViewModel model)
         {
             try
             {
+                if(model.AuthorID == -1)
+                {
+                    ViewBag.Message = "Please, select an Author from Author list ... ";
+
+                    var vmodel = new BookAuthorViewModel
+                    {
+                        Authors = fillSelectList()
+                    };
+
+                    return View(vmodel);
+                };
+
+                var author = AuthorRepository.Find(model.AuthorID);
+                Book book = new Book
+                {
+                    id = model.BookID,
+                    Title = model.Title,
+                    Descriptiopn = model.Description,
+                    Author = author
+                };
+
                 bookRepository.Add(book);
 
                 return RedirectToAction(nameof(Index));
@@ -55,18 +87,37 @@ namespace Bookstore.Controllers
         public ActionResult Edit(int id)
         {
             var book = bookRepository.Find(id);
+            var authorID = book.Author != null ? book.Author.id : 0;
+
+            var viewModel = new BookAuthorViewModel
+            {
+                BookID = book.id,
+                Title = book.Title,
+                Description = book.Descriptiopn,
+                AuthorID = authorID,
+                Authors = AuthorRepository.List().ToList()
+
+            };
             
-            return View(book);
+            return View(viewModel);
         }
 
         // POST: BookController/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit(int id, Book book)
+        public ActionResult Edit(BookAuthorViewModel viewModel)
         {
             try
             {
-                bookRepository.Update(id, book);
+                var author = AuthorRepository.Find(viewModel.AuthorID);
+                Book book = new Book
+                {
+                    Title = viewModel.Title,
+                    Descriptiopn = viewModel.Description,
+                    Author = author
+                };
+
+                bookRepository.Update(viewModel.BookID, book);
                 return RedirectToAction(nameof(Index));
             }
             catch
@@ -97,5 +148,15 @@ namespace Bookstore.Controllers
                 return View();
             }
         }
+
+
+        List<Author> fillSelectList()
+        {
+            var author = AuthorRepository.List().ToList();
+            author.Insert(0, new Author { id = -1, FullName = "... Please select an Author ..." });
+
+            return author;
+        }
+
     }
 }
