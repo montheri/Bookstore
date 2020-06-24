@@ -37,12 +37,7 @@ namespace Bookstore.Controllers
         // GET: BookController/Create
         public ActionResult Create()
         {
-            var model = new BookAuthorViewModel
-            {
-                Authors = fillSelectList()
-            };
-
-            return View(model);
+            return View(getAllBooksAuthors());
         }
 
         // POST: BookController/Create
@@ -50,37 +45,47 @@ namespace Bookstore.Controllers
         [ValidateAntiForgeryToken]
         public ActionResult Create(BookAuthorViewModel model)
         {
-            try
+            if(ModelState.IsValid)
             {
-                if(model.AuthorID == -1)
+                try
                 {
-                    ViewBag.Message = "Please, select an Author from Author list ... ";
-
-                    var vmodel = new BookAuthorViewModel
+                    if (model.AuthorID == -1)
                     {
-                        Authors = fillSelectList()
+                        ViewBag.Message = "Please, select an Author from Author list ... ";
+
+                        var vmodel = new BookAuthorViewModel
+                        {
+                            Authors = fillSelectList()
+                        };
+
+                        return View(vmodel);
                     };
 
-                    return View(vmodel);
-                };
+                    var author = AuthorRepository.Find(model.AuthorID);
+                    Book book = new Book
+                    {
+                        id = model.BookID,
+                        Title = model.Title,
+                        Descriptiopn = model.Description,
+                        Author = author
+                    };
 
-                var author = AuthorRepository.Find(model.AuthorID);
-                Book book = new Book
+                    bookRepository.Add(book);
+
+                    return RedirectToAction(nameof(Index));
+                }
+                catch
                 {
-                    id = model.BookID,
-                    Title = model.Title,
-                    Descriptiopn = model.Description,
-                    Author = author
-                };
+                    return View();
+                }
 
-                bookRepository.Add(book);
-
-                return RedirectToAction(nameof(Index));
             }
-            catch
+            else
             {
-                return View();
+                ModelState.AddModelError("", "please, you have to fill all requered fields!");
+                return View(getAllBooksAuthors());
             }
+          
         }
 
         // GET: BookController/Edit/5
@@ -156,6 +161,15 @@ namespace Bookstore.Controllers
             author.Insert(0, new Author { id = -1, FullName = "... Please select an Author ..." });
 
             return author;
+        }
+
+        BookAuthorViewModel getAllBooksAuthors()
+        {
+            var model = new BookAuthorViewModel
+            {
+                Authors = fillSelectList()
+            };
+            return model;
         }
 
     }
